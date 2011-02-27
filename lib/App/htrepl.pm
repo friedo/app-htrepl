@@ -22,6 +22,7 @@ sub run {
 
     $self->{term}  = Term::ReadLine->new( 'htrepl' );
     $self->{outfh} = $self->{term}->OUT || \*STDOUT;
+    $self->{infh}  = $self->{term}->IN  || \*STDIN;
 
     while( defined ( my $line = $self->{term}->readline( 'htrepl> ' ) ) ) { 
         my $res = eval { 
@@ -49,6 +50,7 @@ sub _eval {
 
     # otherwise do some http!
     my ( $meth, $uri_str ) = $line =~ m{^\s*(\w+)\s+(.+)$};
+    return '' unless $meth;
     $meth = uc $meth;
     
     my $uri = URI->new( $uri_str );
@@ -65,8 +67,8 @@ sub _eval {
         $self->_set_port( $uri->port );
     }
 
-    my $path = $uri->path || '/';
-
+    my $path = ( $uri->path_query || '' );
+   
     # everything we need?
     $self->_check_reqs;
 
@@ -78,9 +80,15 @@ sub _do_http {
 
     my $uri = sprintf '%s://%s:%s/%s', @{ $self }{'proto', 'host', 'port'}, $path;
 
-    print { $self->{outfh} } "$meth $uri\n";
+    my $msg_body = '';
+    if ( $meth =~ /^POST|PUT$/ ) { 
+        $msg_body = $self->_read_body( $meth );
+    }
+
+    print { $self->{outfh} } "\n\n$meth $uri\n\n";
     my $req = HTTP::Request->new( $meth, $uri );
-    
+    $req->content( $msg_body );
+
     my $ua = LWP::UserAgent->new(
         agent                   => "perl-htrepl/$VERSION",
         requests_redirectable   => [ ]
@@ -89,6 +97,21 @@ sub _do_http {
     my $res = $ua->request( $req );
 
     return $res->as_string;
+}
+
+sub _read_body {
+    my ( $self, $meth ) = @_;
+
+    print { $self->{outfh} } "Enter $meth body data. Terminate with CTRL-d\n\n";
+    my $ret = '';
+
+    while ( 1 ) { 
+        my $line = $self->{term}->readline( "$meth> " ); 
+        last unless defined $line;
+        $ret .= $line;
+    }
+
+    return $ret;
 }
 
 sub _set_proto { 
