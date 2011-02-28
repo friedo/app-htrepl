@@ -32,6 +32,9 @@ sub run {
     $self->{headers}    = HTTP::Headers->new;
     $self->{cookies}    = HTTP::Cookies->new;
 
+    $self->{show_headers} = 1;
+    $self->{show_body}    = 1;
+
     while( defined ( my $line = $self->{term}->readline( 'htrepl> ' ) ) ) { 
         $self->{term}->addhistory( $line ) if $line =~ /\S/;
 
@@ -84,7 +87,7 @@ sub _eval {
     # everything we need?
     $self->_check_reqs;
 
-    $self->_do_http( $meth, $path );
+    return $self->_do_http( $meth, $path );
 }
 
 sub _do_http { 
@@ -108,7 +111,17 @@ sub _do_http {
 
     my $res = $ua->simple_request( $req );
 
-    return $res->as_string;
+    my $ret = $res->status_line . "\n";
+
+    if ( $self->{show_headers} ) { 
+        $ret .= $res->headers->as_string;
+    }
+
+    if ( $self->{show_body} ) { 
+        $ret .= $res->content;
+    }
+
+    return $ret;
 }
 
 sub _read_body {
@@ -180,33 +193,88 @@ sub _process_cmd {
     my %cmds = 
       ( q       => \&_cmd_quit,
         quit    => \&_cmd_quit,
-        s       => \&_cmd_set,
         set     => \&_cmd_set,
-        c       => \&_cmd_cookie,
         cookie  => \&_cmd_cookie,
-        h       => \&_cmd_header,
         header  => \&_cmd_header,
         help    => \&_cmd_help,
+        hide    => \&_cmd_show_hide,
+        show    => \&_cmd_show_hide,
       );
 
     my ( $cmd, $arg ) = $line =~ m{^\.(\w+)(?:\s+)?(.+)?$};
 
-    unless( exists $cmds{$cmd} ) { 
+    unless( exists $cmds{lc $cmd} ) { 
         die "Unknown command [$cmd]. Try .help\n";
     }
 
+    my @args;
+    if ( $cmd =~ /^show|hide$/ ) { 
+        push @args, lc $cmd;
+    }
+
     my $meth = $cmds{$cmd};
-    $self->$meth( $arg );
+    $self->$meth( $arg, @args );
 }
 
 sub _cmd_quit { 
     exit;
 }
 
+sub _cmd_show_hide { 
+    my ( $self, $arg, $cmd ) = @_;
+
+    my $field;
+    if ( $arg =~ /head/i ) { 
+        $field = 'headers';
+    } elsif ( $arg =~ /bod/i ) { 
+        $field = 'body';
+    } else { 
+        die "Don't know how to $cmd [$arg]. Try .help\n";
+    }
+
+    my $key = 'show_' . $field;
+    $self->{$key} = $cmd eq 'show' ? 1 : 0;
+
+    print { $self->{outfh} } ( $cmd eq 'show' ? 'Showing ' : 'Hiding ' ), $field;
+    return '';
+}
+
 sub _cmd_set { 
     my ( $self, $arg ) = @_;
 
-    die "Not implemented\n";
+    if ( $arg =~ /^host/i ) { 
+        my ( $val ) = $arg =~ /host\s+(.+)$/;
+
+        if ( defined $val ) { 
+            $self->_set_host( $val );
+        } else { 
+            print { $self->{outfh} } "Unsetting host\n";
+            delete $self->{host};
+        }
+
+    } elsif ( $arg =~ /^port/i ) { 
+        my ( $val ) = $arg =~ /port\s+(\d+)$/;
+
+        if ( defined $val ) { 
+            $self->_set_port( $val );
+        } else { 
+            print { $self->{outfh} } "Unsetting port\n";
+            delete $self->{port};
+        }
+
+    } elsif ( $arg =~ /^ua/i ) { 
+        my ( $val ) = $arg =~ /ua\s+(.+)$/;
+        unless( $val ) { 
+            die "Can't set User-Agent [$val]\n";
+        }
+
+        print { $self->{outfh} } "Setting User-Agent $val\n";
+        $self->{user_agent} = $val;
+    } else { 
+        die "Don't know what to do with [.set $arg]. Try .help\n";
+    }
+
+    return '';
 }
 
 sub _cmd_cookie { 
