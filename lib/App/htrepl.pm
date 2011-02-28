@@ -221,6 +221,7 @@ sub _process_cmd {
         help    => \&_cmd_help,
         hide    => \&_cmd_show_hide,
         show    => \&_cmd_show_hide,
+        look    => \&_cmd_look,
       );
 
     my ( $cmd, $arg ) = $line =~ m{^\.(\w+)(?:\s+)?(.+)?$};
@@ -240,6 +241,33 @@ sub _process_cmd {
 
 sub _cmd_quit { 
     exit;
+}
+
+sub _cmd_look { 
+    my ( $self, $arg ) = @_;
+
+    if ( $arg =~ /^head/i ) { 
+        my ( $hdr ) = $arg =~ /head\w*\s+(.+)$/;
+
+        if ( my $val = $self->{headers}->header( $hdr ) ) { 
+            print { $self->{outfh} } "$hdr: $val\n";
+        } else { 
+            print { $self->{outfh} } "No such header $hdr\n";
+        }
+
+    } elsif ( $arg =~ /cook/i ) { 
+        my ( $ck ) = $arg =~ /cook\w*\s+(.+)$/;
+
+        if ( my $val = $self->_lookup_cookie( $ck ) ) { 
+            print { $self->{outfh} } "$ck: $val\n";
+        } else { 
+            print { $self->{outfh} } "No such cookie $ck\n";
+        }
+    } else { 
+        die "Don't know what to do with [.look $arg]. Try .help\n";
+    }
+
+    return '';
 }
 
 sub _cmd_show_hide { 
@@ -348,6 +376,26 @@ sub _cmd_header {
     return '';
 }
 
+sub _lookup_cookie { 
+    my ( $self, $name ) = @_;
+
+    # Sigh. HTTP::Cookies has no good interface for looking up
+    # cookies by name. :(
+
+    my $jar = $self->{cookies};
+
+    my $ret = '';
+
+    $jar->scan( sub { 
+        my ( $v, $cname, $val, $p, $domain, $port ) = @_;
+
+        if ( ( $self->{host} =~ /\Q$domain/ ) and ( $name eq $cname ) ) { 
+            $ret = $val;
+        }
+    } );
+
+    return $ret;
+}
 
 __PACKAGE__->run unless caller;
 
