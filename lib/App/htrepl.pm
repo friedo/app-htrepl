@@ -66,6 +66,12 @@ sub _eval {
     # otherwise do some http!
     my ( $meth, $uri_str ) = $line =~ m{^\s*(\w+)\s+(.+)$};
     return '' unless $meth;
+
+    my $filename;
+    if ( $uri_str =~ /</ ) { 
+        ( $uri_str, $filename ) = $uri_str =~ m{^([\S]+)\s*<\s*(.+)$};
+    }
+
     $meth = uc $meth;
     
     my $uri = URI->new( $uri_str );
@@ -87,17 +93,21 @@ sub _eval {
     # everything we need?
     $self->_check_reqs;
 
-    return $self->_do_http( $meth, $path );
+    return $self->_do_http( $meth, $path, $filename );
 }
 
 sub _do_http { 
-    my ( $self, $meth, $path ) = @_;
+    my ( $self, $meth, $path, $filename ) = @_;
 
     my $uri = sprintf '%s://%s:%s/%s', @{ $self }{'proto', 'host', 'port'}, $path;
 
     my $msg_body = '';
     if ( $meth =~ /^POST|PUT$/ ) { 
-        $msg_body = $self->_read_body( $meth );
+        if ( $filename ) { 
+            $msg_body = $self->_read_body_file( $filename );
+        } else { 
+            $msg_body = $self->_read_body( $meth );
+        }
     }
 
     print { $self->{outfh} } "\n\n$meth $uri\n\n";
@@ -137,6 +147,18 @@ sub _read_body {
     }
 
     return $ret;
+}
+
+sub _read_body_file { 
+    my ( $self, $filename ) = @_;
+
+    open my $fh, $filename or die "$filename: $!\n";
+
+    local $/;
+
+    my $body = <$fh>;
+
+    return $body;
 }
 
 sub _set_proto { 
