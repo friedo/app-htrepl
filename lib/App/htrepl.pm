@@ -11,7 +11,7 @@ use Term::ReadLine;
 
 use Data::Dumper;
 
-our $VERSION = '0.001';
+our $VERSION = '0.001_01';
 
 sub new { 
     my ( $class, %args ) = @_;
