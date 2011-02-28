@@ -299,7 +299,7 @@ sub _cmd_set {
             $self->_set_host( $val );
         } else { 
             print { $self->{outfh} } "Unsetting host\n";
-            delete $self->{host};
+            $self->{host} = '';
         }
 
     } elsif ( $arg =~ /^port/i ) { 
@@ -309,7 +309,7 @@ sub _cmd_set {
             $self->_set_port( $val );
         } else { 
             print { $self->{outfh} } "Unsetting port\n";
-            delete $self->{port};
+            $self->{port} = '';
         }
 
     } elsif ( $arg =~ /^ua/i ) { 
@@ -374,6 +374,39 @@ sub _cmd_header {
     print { $self->{outfh} } "Deleting header $header\n";
     $self->{headers}->remove_header( $header );
     return '';
+}
+
+sub _cmd_help { 
+    my $self = shift;
+
+    print { $self->{outfh} } <<'END';
+
+htrepl commands:
+
+.header Content-Type application/json    # set header
+.header Content-Type                     # remove header
+
+.cookie ID 12345                         # set a cookie
+.cookie ID                               # remove a cookie
+
+.set host 127.0.0.1                      # set the current host
+.set port 80                             # set the current port
+.set ua MyBrowser/1.2.3                  # set user agent
+
+.show headers                            # display response headers
+.show body                               # display response body
+
+.hide headers                            # hide response headers
+.hide body                               # hide response body
+
+.look header Content-Type                # show current request header
+.look cookie ID                          # show current cookie value
+
+.quit (or .q)                            # quit
+
+END
+
+      return '';
 }
 
 sub _lookup_cookie { 
