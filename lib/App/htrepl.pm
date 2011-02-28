@@ -24,7 +24,12 @@ sub run {
     $self->{outfh} = $self->{term}->OUT || \*STDOUT;
     $self->{infh}  = $self->{term}->IN  || \*STDIN;
 
+    $self->{user_agent} = 'perl-htrepl/' . $VERSION;
+    $self->{headers}    = HTTP::Headers->new;
+
     while( defined ( my $line = $self->{term}->readline( 'htrepl> ' ) ) ) { 
+        $self->{term}->addhistory( $line ) if $line =~ /\S/;
+
         my $res = eval { 
             $self->_eval( $line );
         };
@@ -34,8 +39,10 @@ sub run {
             next;
         }
 
+        next unless defined $res;    # commands will print their output directly
+
         print { $self->{outfh} } $res, "\n\n";
-        $self->{term}->addhistory( $line ) if $line =~ /\S/;
+
     }
 }
 
@@ -86,15 +93,14 @@ sub _do_http {
     }
 
     print { $self->{outfh} } "\n\n$meth $uri\n\n";
-    my $req = HTTP::Request->new( $meth, $uri );
+    my $req = HTTP::Request->new( $meth, $uri, $self->{headers} );
     $req->content( $msg_body );
 
-    my $ua = LWP::UserAgent->new(
-        agent                   => "perl-htrepl/$VERSION",
-        requests_redirectable   => [ ]
-    );
-                                 
-    my $res = $ua->request( $req );
+    my $ua = LWP::UserAgent->new;
+
+    $ua->agent( $self->{user_agent} );
+
+    my $res = $ua->simple_request( $req );
 
     return $res->as_string;
 }
@@ -172,12 +178,15 @@ sub _process_cmd {
         set     => \&_cmd_set,
         c       => \&_cmd_cookie,
         cookie  => \&_cmd_cookie,
+        h       => \&_cmd_header,
+        header  => \&_cmd_header,
+        help    => \&_cmd_help,
       );
 
     my ( $cmd, $arg ) = $line =~ m{^\.(\w+)(?:\s+)?(.+)?$};
 
     unless( exists $cmds{$cmd} ) { 
-        die "Unknown command [$cmd]. Try .help or ?\n";
+        die "Unknown command [$cmd]. Try .help\n";
     }
 
     my $meth = $cmds{$cmd};
@@ -198,6 +207,26 @@ sub _cmd_cookie {
     my ( $self, $arg ) = @_;
 
     die "Not implemented\n";
+}
+
+sub _cmd_header { 
+    my ( $self, $arg ) = @_;
+
+    my ( $header ) = $arg =~ m{^([\w\d-]+)};
+    my ( $val )    = $arg =~ m{^\Q$header\E\s+(.+)$};
+
+    unless( $header ) { 
+        die "Can't understand header name $header\n";
+    }
+
+    if ( defined $val ) { 
+        print { $self->{outfh} } "Setting header $header => $val\n";
+        return $self->{headers}->header( $header => $val );
+    } 
+
+    # no value == delete
+    print { $self->{outfh} } "Deleting header $header\n";
+    $self->{headers}->remove_header( $header );
 }
 
 
