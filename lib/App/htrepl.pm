@@ -4,8 +4,12 @@ use strict;
 use warnings;
 
 use LWP::UserAgent;
+use HTTP::Headers;
+use HTTP::Cookies;
 use URI;
 use Term::ReadLine;
+
+use Data::Dumper;
 
 our $VERSION = '0.001';
 
@@ -26,6 +30,7 @@ sub run {
 
     $self->{user_agent} = 'perl-htrepl/' . $VERSION;
     $self->{headers}    = HTTP::Headers->new;
+    $self->{cookies}    = HTTP::Cookies->new;
 
     while( defined ( my $line = $self->{term}->readline( 'htrepl> ' ) ) ) { 
         $self->{term}->addhistory( $line ) if $line =~ /\S/;
@@ -99,6 +104,7 @@ sub _do_http {
     my $ua = LWP::UserAgent->new;
 
     $ua->agent( $self->{user_agent} );
+    $ua->cookie_jar( $self->{cookies} );
 
     my $res = $ua->simple_request( $req );
 
@@ -206,7 +212,28 @@ sub _cmd_set {
 sub _cmd_cookie { 
     my ( $self, $arg ) = @_;
 
-    die "Not implemented\n";
+    die "Can't set cookie without a hostname. Set a host or make a request first.\n"
+      unless $self->{host};
+
+    my ( $cookie ) = $arg =~ m{^([\w\d-]+)};
+    my ( $val )    = $arg =~ m{^\Q$cookie\E\s+(.+)$};
+
+    unless ( $cookie ) { 
+        die "Can't understand cookie name $cookie\n";
+    }
+
+    if ( defined $val ) { 
+        print { $self->{outfh} } "Setting cookie $cookie => $val\n";
+        
+        # I think we need to do something special to support SSL?
+        $self->{cookies}->set_cookie( 1, $cookie, $val, '/', $self->{host}, $self->{port}, 0, 0, 86400 );
+        return '';
+    }
+
+    # no value == delete
+    print { $self->{outfh} } "Deleting cookie $cookie";
+    $self->{cookies}->clear( $self->{host}, '/', $cookie );
+    return '';
 }
 
 sub _cmd_header { 
@@ -221,12 +248,14 @@ sub _cmd_header {
 
     if ( defined $val ) { 
         print { $self->{outfh} } "Setting header $header => $val\n";
-        return $self->{headers}->header( $header => $val );
+        $self->{headers}->header( $header => $val );
+        return '';
     } 
 
     # no value == delete
     print { $self->{outfh} } "Deleting header $header\n";
     $self->{headers}->remove_header( $header );
+    return '';
 }
 
 
