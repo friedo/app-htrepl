@@ -437,3 +437,63 @@ __PACKAGE__->run unless caller;
 
 __END__
 
+
+=head1 NAME
+
+App::htrepl - A commandline REPL for HTTP applications
+
+=head1 VERSION
+
+0.001_01 - Development release
+
+=head1 SYNOPSIS
+
+    [friedo@box ~]$ htrepl
+
+    htrepl> head http://www.google.com
+    Setting protocol http
+    Setting host www.google.com
+    Setting port 80
+    
+    
+    HEAD http://www.google.com:80/
+    
+    200 OK
+    Cache-Control: private, max-age=0
+    Connection: close
+    Date: Mon, 28 Feb 2011 05:23:23 GMT
+    Server: gws
+    Content-Type: text/html; charset=ISO-8859-1
+    Expires: -1
+    Client-Date: Mon, 28 Feb 2011 05:23:23 GMT
+    Client-Peer: 72.14.204.103:80
+    Client-Response-Num: 1
+    Set-Cookie: PREF=ID=1a1bda55cfcf6aa9:FF=0:TM=1298870603:LM=1298870603:S=t8tAuy45KBiOTiuw; expires=Wed, 27-Feb-2013 05:23:23 GMT; path=/; domain=.google.com
+    Set-Cookie: NID=44=foHo3p-6-ZXByOkR4TkQOA9EveVk49TQ1jhVthq8HK14LTFN4Vhh92nckgxjBqUfDD3yvzv0vny0q49RnxzpzXdIpNBpXb8Npy9msDN8u8ZtIA01Kub7DGV0s0oWrJw8; expires=Tue, 30-Aug-2011 05:23:23 GMT; path=/; domain=.google.com; HttpOnly
+    X-XSS-Protection: 1; mode=block
+
+=head1 DESCRIPTION
+
+App::htrepl provides a commandline tool, C<htrepl>, which implements a REPL (read-eval-print loop) for talking to HTTP
+applications. C<htrepl> provides commands for making HTTP requests, manipulating headers and cookies, and other
+functions in an interactive environment. It will even preserve command history, if you have a proper C<readline> 
+installed.
+
+=head1 REPOSITORY
+
+L<https://github.com/friedo/app-htrepl>
+
+=head1 AUTHOR
+
+Mike Friedman <friedo at friedo dot com>
+
+=head1 COPYRIGHT & LICENSE 
+
+Copyright (C) 2011 by Mike Friedman
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.8.4 or,
+at your option, any later version of Perl 5 you may have available.
+
+=cut
+
